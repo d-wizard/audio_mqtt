@@ -1,0 +1,3 @@
+[submodule "modules/plotperfectclient"]
+	path = modules/plotperfectclient
+	url = https://github.com/d-wizard/plotperfectclient.git
