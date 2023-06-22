@@ -12,14 +12,16 @@ if __name__== "__main__":
    parser.add_argument("-u", type=str, action="store", dest="username", help="Auth User Name", default=None)
    parser.add_argument("-w", type=str, action="store", dest="password", help="Auth Password", default=None)
    parser.add_argument("-t", type=str, action="store", dest="topic", help="Topic", default=None)
-   parser.add_argument("-m", type=int, action="store", dest="message", help="Message to Send", default=None)
+   parser.add_argument("-m", type=str, action="store", dest="message", help="Message to Send", default=None)
    args = parser.parse_args()
 
    if args.topic == None or args.message == None:
-      print("Topic / message need to be specified")
+      print("Topic / Message need to be specified")
       exit(0)
 
    try:
       publish.single(args.topic, args.message, hostname=args.broker, port=args.port)
    except:
       pass
+   
+   exit(0)

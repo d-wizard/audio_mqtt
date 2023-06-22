@@ -22,7 +22,7 @@
 #include <chrono>
 #include "alsaMic.h"
 
-#define ENABLE_PLOTTING
+// #define ENABLE_PLOTTING
 #ifdef ENABLE_PLOTTING
 #include "smartPlotMessage.h"
 #endif
@@ -43,12 +43,28 @@ static int average_count = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// MQTT values from command line
+static std::string mqtt_pythonScriptPath = "";
+static std::string mqtt_broker_ipAddr = "127.0.0.1";
+static uint16_t mqtt_broker_port = 1883;
+static std::string mqtt_topic = "default_topic_name";
+
+///////////////////////////////////////////////////////////////////////////////
+
 static double getNowTime()
 {
    auto timePoint = std::chrono::steady_clock::now().time_since_epoch();
    return std::chrono::duration<double>(timePoint).count();
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
+static void publishMqtt(int32_t value)
+{
+   std::string cmd = "python3 " + mqtt_pythonScriptPath + " -b " + mqtt_broker_ipAddr + " -p " + std::to_string(mqtt_broker_port) + " -t " + mqtt_topic + " -m " + std::to_string(value) + " &";
+   // printf("%s\n", cmd.c_str());
+   system(cmd.c_str());
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -81,6 +97,8 @@ static void alsaMicSamples(void* usrPtr, int16_t* samples, size_t numSamp)
       average_sum = 0;
       average_count = 0;
 
+      publishMqtt(average); // Publish MQTT data.
+
 #ifdef ENABLE_PLOTTING
       smartPlot_1D(&average, E_INT_32, 1, 10000, -1, "Avg", "value");
 #endif
@@ -100,6 +118,23 @@ int main (int argc, char *argv[])
 #ifdef ENABLE_PLOTTING
    smartPlot_createFlushThread(250);
 #endif
+
+   if(argc > 1)
+   {
+      mqtt_pythonScriptPath = std::string(argv[1]);
+   }
+   else
+   {
+      printf("Invalid command line args - Need to specify path to MQTT publisher python script.\n");
+      return -1;
+   }
+
+   if(argc > 2)
+      mqtt_broker_ipAddr = std::string(argv[2]);
+   if(argc > 3)
+      mqtt_broker_port = atoi(argv[3]);
+   if(argc > 4)
+      mqtt_topic = std::string(argv[4]);
 
    g_mic.reset(new AlsaMic("hw:1", 44100, 1024, 1, alsaMicSamples, nullptr));
 
