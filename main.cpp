@@ -20,6 +20,9 @@
 #include <stdint.h>
 #include <memory>
 #include <chrono>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 #include "alsaMic.h"
 
 // #define ENABLE_PLOTTING
@@ -30,6 +33,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 static constexpr double TIME_BETWEEN = 15.0; // 15 seconds
+
+///////////////////////////////////////////////////////////////////////////////
+
+static std::thread g_watchdog_thread;
+static std::mutex g_watchdog_mutex;
+static std::condition_variable g_watchdog_condVar;
+static double g_watchdog_killTime = 150.0;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -99,6 +109,12 @@ static void alsaMicSamples(void* usrPtr, int16_t* samples, size_t numSamp)
 
       publishMqtt(average); // Publish MQTT data.
 
+      // wake the watchdog.
+      {
+         std::lock_guard<std::mutex> lock(g_watchdog_mutex);
+         g_watchdog_condVar.notify_all();
+      }
+
 #ifdef ENABLE_PLOTTING
       smartPlot_1D(&average, E_INT_32, 1, 10000, -1, "Avg", "value");
 #endif
@@ -109,6 +125,22 @@ static void alsaMicSamples(void* usrPtr, int16_t* samples, size_t numSamp)
    // smartPlot_1D(samples, E_INT_16, numSamp, 44100*10, -1, "Mic", "samples");
 #endif
 
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void watchdogThread()
+{
+   std::unique_lock<std::mutex> lock(g_watchdog_mutex);
+   auto timeoutNs = std::chrono::nanoseconds(uint64_t(g_watchdog_killTime*1e9));
+   while(true)
+   {
+      if(g_watchdog_condVar.wait_for(lock, timeoutNs) == std::cv_status::timeout)
+      {
+         printf("watchdog exit\n");
+         exit(1);
+      }
+   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,6 +167,9 @@ int main (int argc, char *argv[])
       mqtt_broker_port = atoi(argv[3]);
    if(argc > 4)
       mqtt_topic = std::string(argv[4]);
+
+   // Start watchdog
+   g_watchdog_thread = std::thread(watchdogThread);
 
    g_mic.reset(new AlsaMic("hw:1", 44100, 1024, 1, alsaMicSamples, nullptr));
 
