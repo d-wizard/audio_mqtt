@@ -21,6 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import os
+import time
 import argparse
 
 THIS_SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -34,11 +35,16 @@ parser.add_argument("-p", type=int, action="store", dest="port", help="Broker Po
 parser.add_argument("-u", type=str, action="store", dest="username", help="Auth User Name", default=None)
 parser.add_argument("-w", type=str, action="store", dest="password", help="Auth Password", default=None)
 parser.add_argument("-t", type=str, action="store", dest="topic", help="Topic", default=None)
+parser.add_argument("-s", type=int, action="store", dest="sleep_before", help="Sleep Time Before Running Command", default=0)
 args = parser.parse_args()
 
 if args.topic == None:
    print("Topic needs to be specified")
    exit(0)
+
+# In case this is being run at boot, it might be a good idea to sleep for a bit before running AudioMqtt
+if args.sleep_before > 0:
+   time.sleep(args.sleep_before)
 
 # Use os.system (i.e. don't return unless the exe being called returns)
 os.system(EXE_PATH + " " + MQTT_PUB_PY_SCRIPT_PATH + " " + args.broker + " " + str(args.port) + " " + args.topic )
